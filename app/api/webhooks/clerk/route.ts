@@ -40,6 +40,8 @@ export async function POST(req: Request) {
 	// For this guide, log payload to console
 	const { id } = event.data;
 	const eventType = event.type;
+	console.log("id = ", id);
+	console.log("eventType = ", eventType);
 
 	// Create a new Svix instance with your secret.
 	// const wh = new Webhook(WEBHOOK_SECRET);
@@ -85,17 +87,21 @@ export async function POST(req: Request) {
 		};
 
 		if (!user) {
+			console.log("user not found");
 			throw new Error("user not found!");
 		}
 		if (!user.firstName || !user.lastName) {
+			console.log("first name is empty");
 			throw new Error("first name is empty");
 		}
 
 		const newUser = await createUser(user as CreateUserParams);
+		console.log("newUser = ", newUser);
 
 		const clerkClient = createClerkClient({ secretKey: WEBHOOK_SECRET });
 		// Set public metadata
 		if (newUser) {
+			console.log("updateUserMetadata");
 			await clerkClient.users.updateUserMetadata(id, {
 				publicMetadata: {
 					userId: newUser._id,
@@ -108,6 +114,7 @@ export async function POST(req: Request) {
 
 	// UPDATE
 	if (eventType === "user.updated") {
+		console.log("update case");
 		const { id, image_url, first_name, last_name, username } = event.data;
 
 		const user = {
@@ -116,18 +123,20 @@ export async function POST(req: Request) {
 			username: username!,
 			photo: image_url,
 		};
+		console.log("user = ", user);
 
 		const updatedUser = await updateUser(id, user as CreateUserParams);
-
+		console.log("updatedUser = ", updatedUser);
 		return NextResponse.json({ message: "OK", user: updatedUser });
 	}
 
 	// DELETE
 	if (eventType === "user.deleted") {
+		console.log("deleteUser");
 		const { id } = event.data;
 
 		const deletedUser = await deleteUser(id!);
-
+		console.log("deletedUser = ", deletedUser);
 		return NextResponse.json({ message: "OK", user: deletedUser });
 	}
 
