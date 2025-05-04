@@ -1,14 +1,17 @@
-import { createClerkClient, WebhookEvent } from "@clerk/backend";
+import { WebhookEvent } from "@clerk/backend";
 import { NextResponse } from "next/server";
 
 import { createUser, deleteUser, updateUser } from "@/lib/actions/user.actions";
+import { createClerkClient } from "@clerk/backend";
 import { headers } from "next/headers";
 import { Webhook } from "svix";
 
 export async function POST(req: Request) {
+	console.log("POST called");
 	// You can find this in the Clerk Dashboard -> Webhooks -> choose the webhook
+	const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
 	const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
-
+	console.log("WEBHOOK_SECRET = ", WEBHOOK_SECRET);
 	if (!WEBHOOK_SECRET) {
 		throw new Error(
 			"Please add WEBHOOK_SECRET from Clerk Dashboard to .env or .env.local"
@@ -63,12 +66,19 @@ export async function POST(req: Request) {
 		});
 	}
 
+	console.log("evt = ", evt);
+	console.log("evt.data = ", evt.data);
+
 	// // Get the ID and type
 	const { id } = evt.data;
 	const eventType = evt.type;
 
+	console.log("id = ", id);
+	console.log("eventType = ", eventType);
+
 	// CREATE
 	if (eventType === "user.created") {
+		console.log("user.created");
 		const {
 			id,
 			email_addresses,
@@ -81,27 +91,30 @@ export async function POST(req: Request) {
 		const user = {
 			clerkId: id,
 			email: email_addresses[0].email_address,
-			username: username!,
+			username: username!
+				? username
+				: email_addresses[0]?.email_address.split("@")[0],
 			firstName: first_name,
 			lastName: last_name,
 			photo: image_url,
 		};
 
+		console.log("user = ", user);
+
 		if (!user) {
 			console.log("user not found");
 			throw new Error("user not found!");
 		}
-		if (!user.firstName || !user.lastName) {
-			console.log("first name is empty");
-			throw new Error("first name is empty");
-		}
 
-		const newUser = await createUser(user as CreateUserParams);
+		const newUser = await createUser(user);
 		console.log("newUser = ", newUser);
 
-		const clerkClient = createClerkClient({ secretKey: WEBHOOK_SECRET });
+		const clerkClient = createClerkClient({ secretKey: CLERK_SECRET_KEY });
+
 		// Set public metadata
 		if (newUser) {
+			console.log("更新するユーザーID:", id);
+
 			console.log("updateUserMetadata");
 			await clerkClient.users.updateUserMetadata(id, {
 				publicMetadata: {
@@ -116,17 +129,26 @@ export async function POST(req: Request) {
 	// UPDATE
 	if (eventType === "user.updated") {
 		console.log("update case");
-		const { id, image_url, first_name, last_name, username } = evt.data;
+		const {
+			id,
+			image_url,
+			email_addresses,
+			first_name,
+			last_name,
+			username,
+		} = evt.data;
 
 		const user = {
 			firstName: first_name,
 			lastName: last_name,
-			username: username!,
+			username: username!
+				? username
+				: email_addresses[0]?.email_address.split("@")[0],
 			photo: image_url,
 		};
 		console.log("user = ", user);
 
-		const updatedUser = await updateUser(id, user as CreateUserParams);
+		const updatedUser = await updateUser(id, user);
 		console.log("updatedUser = ", updatedUser);
 		return NextResponse.json({ message: "OK", user: updatedUser });
 	}
@@ -135,7 +157,7 @@ export async function POST(req: Request) {
 	if (eventType === "user.deleted") {
 		console.log("deleteUser");
 		const { id } = evt.data;
-
+		console.log("evt.data = ", evt.data);
 		const deletedUser = await deleteUser(id!);
 		console.log("deletedUser = ", deletedUser);
 		return NextResponse.json({ message: "OK", user: deletedUser });
