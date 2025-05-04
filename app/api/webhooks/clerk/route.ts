@@ -94,8 +94,8 @@ export async function POST(req: Request) {
 			username: username!
 				? username
 				: email_addresses[0]?.email_address.split("@")[0],
-			firstName: first_name,
-			lastName: last_name,
+			firstName: first_name ?? "",
+			lastName: last_name ?? "",
 			photo: image_url,
 		};
 
@@ -139,8 +139,8 @@ export async function POST(req: Request) {
 		} = evt.data;
 
 		const user = {
-			firstName: first_name,
-			lastName: last_name,
+			firstName: first_name ?? "",
+			lastName: last_name ?? "",
 			username: username!
 				? username
 				: email_addresses[0]?.email_address.split("@")[0],
@@ -158,7 +158,10 @@ export async function POST(req: Request) {
 		console.log("deleteUser");
 		const { id } = evt.data;
 		console.log("evt.data = ", evt.data);
-		const deletedUser = await deleteUser(id!);
+		if (!id) {
+			throw new Error("User id is missing in event data");
+		}
+		const deletedUser = await deleteUser(id);
 		console.log("deletedUser = ", deletedUser);
 		return NextResponse.json({ message: "OK", user: deletedUser });
 	}
